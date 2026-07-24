@@ -39,20 +39,25 @@ nixpkgs.overlays = [ inputs.nix-bisq.overlays.default ];
 
 ## Updating to a new Bisq release
 
-```bash
-# Bisq 1 (bisq-desktop), e.g. 1.10.5
-nix store prefetch-file "https://github.com/bisq-network/bisq/releases/download/v1.10.5/Bisq-64bit-1.10.5.deb"
-nix store prefetch-file "https://github.com/bisq-network/bisq/releases/download/v1.10.5/Bisq-64bit-1.10.5.deb.asc"
+The volatile fields (`version` + the two `.deb`/signature hashes) live in
+`pkgs/<pkg>/source.json`; each derivation reads them via `lib.importJSON`. You
+never hand-edit hashes inside the `.nix` files.
 
-# Bisq 2 (bisq2), e.g. 2.1.12
-nix store prefetch-file "https://github.com/bisq-network/bisq2/releases/download/v2.1.12/Bisq-2.1.12.deb"
-nix store prefetch-file "https://github.com/bisq-network/bisq2/releases/download/v2.1.12/Bisq-2.1.12.deb.asc"
+**Automatic (recommended).** The [`update-bisq`](.github/workflows/update-bisq.yml)
+GitHub Action runs weekly (and on manual dispatch). For any package with a newer
+upstream release it rewrites `source.json`, builds + GPG-verifies the package in
+CI, and opens a PR. You just review the `source.json` diff and merge.
+
+**Manual.** Run the same updater locally:
+
+```bash
+./update.sh              # check/update both packages
+./update.sh bisq2        # just one
+nix build .#bisq-desktop .#bisq2   # verify (build fails if GPG verification fails)
 ```
 
-Paste the printed `sha256-…` values into `version` + `src.hash` + `signature.hash`
-in the matching `pkgs/<pkg>/default.nix`, then `nix build .#<pkg>` to verify (the
-build fails if GPG verification fails). The signing-key `.asc` hashes only change
-if Bisq rotates keys.
+Or edit `source.json` by hand and `nix build`. The signing-key `.asc` hashes are
+still pinned inline in the `.nix` files and only change if Bisq rotates keys.
 
 ## Build / verify
 

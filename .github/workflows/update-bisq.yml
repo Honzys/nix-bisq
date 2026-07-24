@@ -1,0 +1,63 @@
+name: update-bisq
+
+# Weekly check for new Bisq releases. When one exists, update source.json,
+# build + GPG-verify the package in CI, and open (or refresh) a PR for review.
+on:
+  schedule:
+    - cron: "0 6 * * 1" # Mondays 06:00 UTC
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Nix
+        uses: DeterminateSystems/nix-installer-action@main
+
+      - name: Bump source.json for any new Bisq releases
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: ./update.sh
+
+      - name: Detect changes
+        id: diff
+        run: |
+          if git diff --quiet; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            echo "No new Bisq releases."
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+            git --no-pager diff
+          fi
+
+      - name: Verify updated packages build (incl. GPG verification)
+        if: steps.diff.outputs.changed == 'true'
+        run: nix build .#bisq-desktop .#bisq2 --no-link --print-build-logs
+
+      - name: Commit, push and open/refresh PR
+        if: steps.diff.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          branch="auto/bisq-bump"
+          v1="$(jq -r .version pkgs/bisq-desktop/source.json)"
+          v2="$(jq -r .version pkgs/bisq2/source.json)"
+          title="chore: bump Bisq (bisq-desktop ${v1}, bisq2 ${v2})"
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -B "$branch"
+          git commit -am "$title"
+          git push -f origin "$branch"
+          if gh pr view "$branch" >/dev/null 2>&1; then
+            echo "PR already open; branch updated."
+          else
+            gh pr create --base master --head "$branch" --title "$title" \
+              --body "Automated Bisq version bump. Both packages built and GPG-verified in CI. Review the source.json diff and merge."
+          fi

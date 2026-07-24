@@ -4,12 +4,9 @@
 # prebuilt .deb from GitHub Releases, GPG-verifies it against Bisq's signing keys,
 # swaps the embedded Tor binary for the Nixpkgs one, and repackages it.
 #
-#   To update to a new Bisq 2 release vX.Y.Z:
-#     1. version        = "X.Y.Z";
-#     2. src.hash            -> nix store prefetch-file \
-#          "https://github.com/bisq-network/bisq2/releases/download/vX.Y.Z/Bisq-X.Y.Z.deb"
-#     3. signature.hash      -> nix store prefetch-file \
-#          "https://github.com/bisq-network/bisq2/releases/download/vX.Y.Z/Bisq-X.Y.Z.deb.asc"
+#   version + the deb/signature hashes live in ./source.json. To bump: run
+#   `./update.sh` from the repo root (or let the weekly GitHub Action do it), or
+#   edit source.json by hand.
 #   A release is signed by ONE of the two keys below (see signingkey.asc in the
 #   release); both are imported so either signature verifies. Update a publicKey
 #   hash only if Bisq rotates that key.
@@ -37,7 +34,8 @@
 }:
 
 let
-  version = "2.1.11";
+  source = lib.importJSON ./source.json;
+  version = source.version;
 
   jdk = zulu25.override { enableJavaFX = true; };
 
@@ -81,7 +79,7 @@ stdenv.mkDerivation (finalAttrs: {
 
   src = fetchurl {
     url = "https://github.com/bisq-network/bisq2/releases/download/v${version}/Bisq-${version}.deb";
-    hash = "sha256-Ts0u1Rapgfz/z17U3VSN17/rdACr/KOGmiZjWnGJmcw=";
+    hash = source.debHash;
 
     # Verify the upstream Debian package prior to extraction, so a successful
     # build requires the .deb to pass GPG verification.
@@ -104,7 +102,7 @@ stdenv.mkDerivation (finalAttrs: {
 
   signature = fetchurl {
     url = "https://github.com/bisq-network/bisq2/releases/download/v${version}/Bisq-${version}.deb.asc";
-    hash = "sha256-/+HDj28uOFQwkrrzKfcQW0T5/qTIeB30Zd10EjeGhlU=";
+    hash = source.sigHash;
   };
 
   nativeBuildInputs = [

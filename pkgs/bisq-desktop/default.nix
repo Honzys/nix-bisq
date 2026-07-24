@@ -4,15 +4,12 @@
 # Provenance: adapted from emmanuelrosa/btc-clients-nix (pkgs/bisq/default.nix).
 # It does NOT build from source — it downloads Bisq's official prebuilt .deb from
 # GitHub Releases, GPG-verifies it against Bisq's signing keys, and repackages it
-# for Nix. That makes a version bump a 3-field change:
+# for Nix. That makes a version bump a 3-field change.
 #
-#   To update to a new Bisq 1 release vX.Y.Z:
-#     1. version   = "X.Y.Z";
-#     2. src.hash            -> nix store prefetch-file \
-#          "https://github.com/bisq-network/bisq/releases/download/vX.Y.Z/Bisq-64bit-X.Y.Z.deb"
-#     3. signature.hash      -> nix store prefetch-file \
-#          "https://github.com/bisq-network/bisq/releases/download/vX.Y.Z/Bisq-64bit-X.Y.Z.deb.asc"
-#   The two publicKey hashes only change if Bisq rotates signing keys (rare).
+#   version + the deb/signature hashes live in ./source.json. To bump: run
+#   `./update.sh` from the repo root (or let the weekly GitHub Action do it), or
+#   edit source.json by hand. The two publicKey hashes below only change if Bisq
+#   rotates signing keys (rare).
 { stdenv
 , lib
 , makeWrapper
@@ -34,7 +31,8 @@
 }:
 
 let
-  version = "1.10.4";
+  source = lib.importJSON ./source.json;
+  version = source.version;
   archiveName = "Bisq-64bit-${version}.deb";
   jdk = openjdk21.override { enableJavaFX = true; };
 
@@ -64,7 +62,7 @@ stdenv.mkDerivation (finalAttrs: {
 
   src = fetchurl {
     url = "https://github.com/bisq-network/bisq/releases/download/v${finalAttrs.version}/${archiveName}";
-    hash = "sha256-rOFbiuEbeO2qZntUhO+LNhwX6XlvWRU9v0HIAjyHwd8=";
+    hash = source.debHash;
   };
 
   nativeBuildInputs = [
@@ -105,7 +103,7 @@ stdenv.mkDerivation (finalAttrs: {
   preUnpack = let
     signature = fetchurl {
       url = "https://github.com/bisq-network/bisq/releases/download/v${finalAttrs.version}/${archiveName}.asc";
-      hash = "sha256-3fAGauXHA8S+XIuHeOIFxp7TsXd1LdqFg8hpWIU4P7k=";
+      hash = source.sigHash;
     };
 
     publicKey = {
