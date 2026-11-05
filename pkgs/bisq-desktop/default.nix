@@ -53,10 +53,10 @@ let
 
   # Since 1.10.11 Bisq runs Tor in a sandbox (sandy) that only lets it exec
   # files in its own bin dir — no /nix/store interpreter or libraries. A static
-  # Tor needs neither. For musl-static: systemd isn't available, torsocks (only
+  # Tor needs neither. For musl-static: systemdLibs isn't available, torsocks (only
   # used by the torify script) fails to link, -lgcc_s has no static lib, and
   # test-memwipe segfaults by design (reads freed memory) under musl malloc.
-  tor = (pkgsStatic.tor.override { systemd = null; inherit torsocks; }).overrideAttrs {
+  tor = (pkgsStatic.tor.override { systemdLibs = null; inherit torsocks; }).overrideAttrs {
     env = { };
     doCheck = false;
   };
