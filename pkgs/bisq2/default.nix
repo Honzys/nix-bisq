@@ -2,7 +2,7 @@
 #
 # Like bisq-desktop, this does NOT build from source: it downloads Bisq's official
 # prebuilt .deb from GitHub Releases, GPG-verifies it against Bisq's signing keys,
-# swaps the embedded Tor binary for the Nixpkgs one, and repackages it.
+# swaps the embedded Tor binary for a static Nixpkgs one, and repackages it.
 #
 #   version + the deb/signature hashes live in ./source.json. To bump: run
 #   `./update.sh` from the repo root (or let the weekly GitHub Action do it), or
@@ -24,7 +24,7 @@
   zulu25,
   dpkg,
   writeShellScript,
-  tor,
+  callPackage,
   zip,
   gnupg,
   coreutils,
@@ -36,6 +36,8 @@
 let
   source = lib.importJSON ./source.json;
   version = source.version;
+
+  tor = callPackage ../tor-static.nix { };
 
   jdk = zulu25.override { enableJavaFX = true; };
 
@@ -146,9 +148,9 @@ stdenv.mkDerivation (finalAttrs: {
 
   buildPhase = ''
     # Replace the Tor binary embedded in tor.jar (which is in the zip archive tor.zip)
-    # with the Tor binary from Nixpkgs.
+    # with a static Tor (see ../tor-static.nix).
 
-    makeWrapper ${lib.getExe' tor "tor"} ./tor
+    install -m 755 ${tor}/bin/tor ./tor
     zip tor.zip ./tor
     zip opt/bisq2/lib/app/tor.jar tor.zip
   '';

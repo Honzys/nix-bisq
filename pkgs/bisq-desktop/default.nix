@@ -22,8 +22,7 @@
 , writeScript
 , bash
 , stripJavaArchivesHook
-, pkgsStatic
-, torsocks
+, callPackage
 , zip
 , unzip
 , findutils
@@ -51,15 +50,7 @@ let
     exec "${jdk}/bin/java" -Djpackage.app-version=@version@ -XX:MaxRAM=8g -Xss1280k -XX:+UseG1GC -XX:MaxHeapFreeRatio=10 -XX:MinHeapFreeRatio=5 -XX:+UseStringDeduplication -Djava.net.preferIPv4Stack=true --add-exports=javafx.graphics/com.sun.javafx.scene=ALL-UNNAMED --add-exports=javafx.controls/com.sun.javafx.scene.control=ALL-UNNAMED --add-exports=javafx.controls/com.sun.javafx.scene.control.behavior=ALL-UNNAMED --add-opens=javafx.controls/javafx.scene.control.skin=ALL-UNNAMED -classpath $classpath ${args} bisq.desktop.app.BisqAppMain "$@"
   '';
 
-  # Since 1.10.11 Bisq runs Tor in a sandbox (sandy) that only lets it exec
-  # files in its own bin dir — no /nix/store interpreter or libraries. A static
-  # Tor needs neither. For musl-static: systemdLibs isn't available, torsocks (only
-  # used by the torify script) fails to link, -lgcc_s has no static lib, and
-  # test-memwipe segfaults by design (reads freed memory) under musl malloc.
-  tor = (pkgsStatic.tor.override { systemdLibs = null; inherit torsocks; }).overrideAttrs {
-    env = { };
-    doCheck = false;
-  };
+  tor = callPackage ../tor-static.nix { };
 in
 stdenv.mkDerivation (finalAttrs: {
   inherit version;
